@@ -187,7 +187,6 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     <button class="tab-btn" data-tab="pkt">Quality PKT Certification</button>
     <button class="tab-btn" data-tab="kra">KRA Certification</button>
     <button class="tab-btn" data-tab="exits">Exits — Training Phase</button>
-    <button class="tab-btn" data-tab="ojt">OJT Phase Schedule</button>
   </div>
 
   <!-- SLICERS (for Training → New Hire Training only) -->
@@ -395,8 +394,13 @@ async function fetchData() {
       throw new Error('Sheet is empty or missing data');
     }
     
-    // Row 0 = Categories, Row 1 = Groups, Row 2 = Headers, Row 3 = Totals, Row 4+ = Data
-    const headers = rows[2];
+    // Row 1 = Categories, Row 2 = Sub-headers (merged), Row 3 = Headers, Row 4 = Totals, Row 5+ = Data
+    // Merge rows[1] and rows[2] to handle merged headers across Row 2-Row 3 in Excel
+    const headers = rows[2].map((h, i) => {
+      const h2 = (rows[1] && rows[1][i]) ? String(rows[1][i]).trim() : '';
+      const h3 = h ? String(h).trim() : '';
+      return h2 || h3;
+    });
     const dataRows = rows.slice(4);
     
     DATA = dataRows
@@ -532,12 +536,22 @@ function fmt(v,f='p'){
   return Number(v).toFixed(2);
 }
 
-function groupBy(data,gk,vk,agg='wavg',wk='Headcount (Day 0)'){
+function normalizePercentage(val) {
+  if(val === null || val === undefined || val === '') return null;
+  const str = String(val).trim();
+  if(str === 'NA' || str === 'N/A' || str === '') return null;
+  const v = parseFloat(str);
+  if(isNaN(v)) return null;
+  if(v > 1) return v / 100;
+  return v;
+}
+
+function groupBy(data,gk,vk,agg='wavg',wk='Headcount (Day 0)',isPct=false){
   const g={};
   data.forEach(r=>{
     const k=r[gk]||'?';
     if(!g[k])g[k]={v:[],w:[]};
-    const v=parseFloat(r[vk]);
+    let v = isPct ? normalizePercentage(r[vk]) : parseFloat(r[vk]);
     if(v!=null&&!isNaN(v)){
       g[k].v.push(v);
       g[k].w.push(parseFloat(r[wk])||1);
@@ -603,11 +617,11 @@ function renderKPIStrip(data) {
   const totalAttr = data.reduce((s,r) => s+(parseFloat(r['Total Attrition'])||0),0);
   const bCount = new Set(data.map(r=>r['Batches'])).size;
   
-  function wavg(f){
+  function wavg(f,isPct=true){
     let n=0,d=0;
     data.forEach(r=>{
       const w=parseFloat(r['Headcount (Day 0)'])||0;
-      const v=parseFloat(r[f]);
+      let v = isPct ? normalizePercentage(r[f]) : parseFloat(r[f]);
       if(v!=null&&!isNaN(v)){n+=v*w;d+=w;}
     });
     return d?n/d:null;
@@ -618,8 +632,8 @@ function renderKPIStrip(data) {
     {l:'Total Headcount (Day 0)',v:totalHC,f:'n',c:'cb'},
     {l:'Total Training End HC',v:totalEnd,f:'n',c:'cg'},
     {l:'Total Attrition',v:totalAttr,f:'n',c:'cr'},
-    {l:'Avg Conversion %',v:wavg('Conversion(Training start to end) %'),f:'p',c:'cg'},
-    {l:'Avg PKT Cert %',v:wavg('PKT Certification %'),f:'p',c:'cp'},
+    {l:'Avg Conversion %',v:wavg('Conversion(Training start to end) %',true),f:'p',c:'cg'},
+    {l:'Avg PKT Cert %',v:wavg('PKT Certification %',true),f:'p',c:'cp'},
   ];
   
   document.getElementById('kpiStrip').innerHTML = kpis.map(k => `
@@ -643,7 +657,6 @@ function renderTab() {
     case 'pkt': tabPKT(main, filtered); break;
     case 'kra': tabKRA(main, filtered); break;
     case 'exits': tabExits(main, filtered); break;
-    case 'ojt': tabOJT(main, filtered); break;
     default: tabBatch(main, filtered);
   }
 }
@@ -655,10 +668,6 @@ function tabBatch(main,data){
       <div class="ch-card"><div class="ch-title">Headcount by Process</div><div class="ch-wrap"><canvas id="c1"></canvas></div></div>
       <div class="ch-card"><div class="ch-title">Headcount by Trainer</div><div class="ch-wrap"><canvas id="c2"></canvas></div></div>
     </div>
-    <div class="charts-grid g2">
-      <div class="ch-card"><div class="ch-title">Status Distribution</div><div class="ch-wrap"><canvas id="c3"></canvas></div></div>
-      <div class="ch-card"><div class="ch-title">Batches by Month</div><div class="ch-wrap"><canvas id="c4"></canvas></div></div>
-    </div>
     `;
   const hcP=groupBy(data,'Process','Headcount (Day 0)','sum');
   const pl=Object.keys(hcP).slice(0,14);
@@ -666,54 +675,41 @@ function tabBatch(main,data){
   const hcT=groupBy(data,'Trainer Name','Headcount (Day 0)','sum');
   const tl=Object.keys(hcT);
   mkChart('c2','bar',tl,[{data:tl.map(l=>hcT[l]),backgroundColor:'rgba(167,139,250,.7)',borderWidth:0,borderRadius:6}],{isPct:false,isCount:true});
-  const sc={};data.forEach(r=>{const s=r['Status']||'?';sc[s]=(sc[s]||0)+1;});
-  mkChart('c3','doughnut',Object.keys(sc),[{data:Object.values(sc),backgroundColor:CC.pal.slice(0,Object.keys(sc).length).map(c=>c+'bb'),borderColor:'transparent',borderWidth:0}],{isPct:false});
-  const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const validMonths=months.filter(m=>data.some(r=>r['Month']===m));
-  const mc={};data.forEach(r=>{if(r['Month'])mc[r['Month']]=(mc[r['Month']]||0)+1;});
-  mkChart('c4','bar',validMonths,[{data:validMonths.map(m=>mc[m]||0),backgroundColor:'rgba(0,200,83,.7)',borderWidth:0,borderRadius:6}],{isPct:false,isCount:true});
 }
 
 // TAB 2: TRAINING SCHEDULE
 function tabTrng(main,data){
-  main.innerHTML=`<div class="charts-grid g2"><div class="ch-card"><div class="ch-title">Training Effectiveness % by Process</div><div class="ch-wrap"><canvas id="c1"></canvas></div></div><div class="ch-card"><div class="ch-title">Conversion % (Trng start to end) by Process</div><div class="ch-wrap"><canvas id="c2"></canvas></div></div></div>`;
-  const te=groupBy(data,'Process','Training Effectiveness %');
-  const conv=groupBy(data,'Process','Conversion(Training start to end) %');
-  const pl=Object.keys(te);
-  mkChart('c1','bar',pl,[{data:pl.map(l=>te[l]),backgroundColor:'rgba(251,191,36,.7)',borderWidth:0,borderRadius:6}],{isPct:true});
-  mkChart('c2','bar',pl,[{data:pl.map(l=>conv[l]),backgroundColor:'rgba(34,211,238,.7)',borderWidth:0,borderRadius:6}],{isPct:true});
+  main.innerHTML=`<div class="charts-grid g1"><div class="ch-card"><div class="ch-title">Conversion % (Trng start to end) by Process</div><div class="ch-wrap"><canvas id="c1"></canvas></div></div></div>`;
+  const conv=groupBy(data,'Process','Conversion(Training start to end) %','wavg','Headcount (Day 0)',true);
+  const pl=Object.keys(conv).filter(k=>conv[k]!==null);
+  mkChart('c1','bar',pl,[{data:pl.map(l=>conv[l]),backgroundColor:'rgba(34,211,238,.7)',borderWidth:0,borderRadius:6}],{isPct:true,extraOpts:{scales:{y:{ticks:{callback:v=>(v*100).toFixed(0)+'%',max:1},max:1}}}});
 }
 
 // TAB 3: QUALITY PKT
 function tabPKT(main,data){
   main.innerHTML=`<div class="charts-grid g1"><div class="ch-card"><div class="ch-title">PKT Certification % by Process</div><div class="ch-wrap"><canvas id="c1"></canvas></div></div></div>`;
-  const pkt=groupBy(data,'Process','PKT Certification %');
-  const pl=Object.keys(pkt);
-  mkChart('c1','bar',pl,[{data:pl.map(l=>pkt[l]),backgroundColor:'rgba(30,136,229,.7)',borderWidth:0,borderRadius:6}],{isPct:true});
+  const pkt=groupBy(data,'Process','PKT Certification %','wavg','Headcount (Day 0)',true);
+  const pl=Object.keys(pkt).filter(k=>pkt[k]!==null);
+  mkChart('c1','bar',pl,[{data:pl.map(l=>pkt[l]),backgroundColor:'rgba(30,136,229,.7)',borderWidth:0,borderRadius:6}],{isPct:true,extraOpts:{scales:{y:{ticks:{callback:v=>(v*100).toFixed(0)+'%',max:1},max:1}}}});
 }
 
 // TAB 4: KRA CERTIFICATION
 function tabKRA(main,data){
   main.innerHTML=`<div class="charts-grid g1"><div class="ch-card"><div class="ch-title">Conversion (Training end to certification) % by Process</div><div class="ch-wrap"><canvas id="c1"></canvas></div></div></div>`;
-  const kra=groupBy(data,'Process','Conversion (Training end to certification) %');
-  const pl=Object.keys(kra);
-  mkChart('c1','bar',pl,[{data:pl.map(l=>kra[l]),backgroundColor:'rgba(124,77,255,.7)',borderWidth:0,borderRadius:6}],{isPct:true});
+  const kra=groupBy(data,'Process','Conversion (Training end to certification) %','wavg','Headcount (Day 0)',true);
+  const pl=Object.keys(kra).filter(k=>kra[k]!==null);
+  mkChart('c1','bar',pl,[{data:pl.map(l=>kra[l]),backgroundColor:'rgba(124,77,255,.7)',borderWidth:0,borderRadius:6}],{isPct:true,extraOpts:{scales:{y:{ticks:{callback:v=>(v*100).toFixed(0)+'%',max:1},max:1}}}});
 }
 
 // TAB 5: EXITS
 function tabExits(main,data){
   main.innerHTML=`<div class="charts-grid g1"><div class="ch-card"><div class="ch-title">Total Attrition % by Process</div><div class="ch-wrap"><canvas id="c1"></canvas></div></div></div>`;
-  const atr=groupBy(data,'Process','Attrition %');
-  const pl=Object.keys(atr);
-  mkChart('c1','bar',pl,[{data:pl.map(l=>atr[l]),backgroundColor:'rgba(211,47,47,.7)',borderWidth:0,borderRadius:6}],{isPct:true});
+  const atr=groupBy(data,'Process','Attrition %','wavg','Headcount (Day 0)',true);
+  const pl=Object.keys(atr).filter(k=>atr[k]!==null);
+  mkChart('c1','bar',pl,[{data:pl.map(l=>atr[l]),backgroundColor:'rgba(211,47,47,.7)',borderWidth:0,borderRadius:6}],{isPct:true,extraOpts:{scales:{y:{ticks:{callback:v=>(v*100).toFixed(0),max:1},max:1}}}});
 }
 
-// TAB 6: OJT PHASE
-function tabOJT(main,data){
-  main.innerHTML=`<div class="charts-grid g1"><div class="ch-card"><div class="ch-title">Batches by Training Status</div><div class="ch-wrap"><canvas id="c1"></canvas></div></div></div>`;
-  const bStatus={};data.forEach(r=>{const s=r['Status']||'?';bStatus[s]=(bStatus[s]||0)+1;});
-  mkChart('c1','bar',Object.keys(bStatus),[{data:Object.values(bStatus),backgroundColor:'rgba(34,211,238,.7)',borderWidth:0,borderRadius:6}],{isPct:false,isCount:true});
-}
+
 
 // ═══════════════════════════════════════════════════════════
 //  BOOT
