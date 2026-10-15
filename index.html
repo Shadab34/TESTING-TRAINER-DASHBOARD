@@ -278,13 +278,15 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       <button class="tab-btn" data-tab="trng">TRAINING SCHEDULE</button>
       <button class="tab-btn" data-tab="quality">QUALITY PKT CERTIFICATION</button>
       <button class="tab-btn" data-tab="kra">KRA CERTIFICATION</button>
-      <button class="tab-btn" data-tab="exits">EXITS - TRAINING PHASE</button>
     </div>
 
     <!-- SLICERS (for Training → New Hire Training only) -->
     <div class="slicers" id="slicersBar" style="display:none;">
       <button class="clear-btn" id="clearAllBtn">✕ Clear All</button>
     </div>
+
+    <!-- L&D FILTERS (Training → L&D only) -->
+    <div class="slicers" id="lndSlicersBar" style="display:none;"></div>
 
     <!-- SUMMARY LABEL -->
     <div id="summaryLabel" style="display:none;">
@@ -429,17 +431,22 @@ function renderPage() {
   document.getElementById('pageSub').textContent = `${section.name} — ${subTabLabel}`;
   
   const isNHT = currentSection === 'training' && currentSubTab === 'new-hire-training';
+  const isLnd = currentSection === 'training' && currentSubTab === 'ld';
   document.getElementById('tabsBar').style.display = isNHT ? 'flex' : 'none';
   document.getElementById('slicersBar').style.display = isNHT ? 'flex' : 'none';
-  document.getElementById('summaryLabel').style.display = isNHT ? 'flex' : 'none';
-  document.getElementById('kpiStrip').style.display = isNHT ? 'grid' : 'none';
+  document.getElementById('lndSlicersBar').style.display = isLnd ? 'flex' : 'none';
+  document.getElementById('summaryLabel').style.display = (isNHT || isLnd) ? 'flex' : 'none';
+  document.getElementById('kpiStrip').style.display = (isNHT || isLnd) ? 'grid' : 'none';
   document.getElementById('fetchBar').style.display = 'none';
   document.getElementById('hdr').style.display = isNHT ? 'flex' : 'none';
   
   if (isNHT && DATA.length > 0) {
+    renderKPIStrip(getFiltered());
     renderTab();
   } else if (isNHT) {
     document.getElementById('mainArea').innerHTML = '<div class="placeholder-page"><div class="placeholder-content"><div class="placeholder-icon">⏳</div><div class="placeholder-title">Loading Data...</div></div></div>';
+  } else if (isLnd) {
+    renderLnd();
   } else {
     showPlaceholder(section.name, subTabLabel);
   }
@@ -545,6 +552,7 @@ async function fetchData() {
 function refreshData() {
   document.getElementById('statusText').textContent = 'Refreshing...';
   fetchData();
+  fetchLndData();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -850,7 +858,6 @@ function renderTab() {
     case 'quality': tabQuality(main, filtered); break;
     case 'pkt': tabPKT(main, filtered); break;
     case 'kra': tabKRA(main, filtered); break;
-    case 'exits': tabExits(main, filtered); break;
     default: tabBatch(main, filtered);
   }
 }
@@ -902,6 +909,301 @@ function tabKRA(main,data){
   mkChart('c1','bar',pl,[{data:pl.map(l=>kra[l]),backgroundColor:'rgba(124,77,255,.7)',borderWidth:0,borderRadius:6}],{isPct:true,extraOpts:{scales:{y:{ticks:{callback:v=>(v*100).toFixed(0)+'%',max:1},max:1}}}});
 }
 
+// ═══════════════════════════════════════════════════════════
+//  L&D — SEPARATE SHEET, FILTERS AND OVERALL SUMMARY
+// ═══════════════════════════════════════════════════════════
+const LND_SID = '1qmkV-GBMIEDo_7JIIw8WIQ00uYyg13Yh';
+const LND_GID = '508592242';
+const LND_CSV_URL = `https://docs.google.com/spreadsheets/d/${LND_SID}/export?format=csv&gid=${LND_GID}`;
+
+const LND_FILTERS = [
+  {key:'month', label:'Month'},
+  {key:'year', label:'Year'},
+  {key:'func', label:'Function'},
+  {key:'trainer', label:'Trainer'},
+];
+const lndSel = {};
+LND_FILTERS.forEach(f => lndSel[f.key] = new Set());
+
+let LND_DATA = [];
+let LND_COL = {};
+let LND_READY = false;
+let LND_ERROR = '';
+
+const escH = s => String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+
+function resolveLndColumns(headers){
+  const find = rx => headers.find(h => rx.test(h)) || null;
+  return {
+    month: find(/^month$/i),
+    year: find(/^year$/i),
+    func: find(/^function$/i),
+    trainer: find(/^trainer(\s*name)?$/i),
+    invited: '__inv',
+    attended: '__att',
+    conv: '__conv',
+    sessions: find(/^sessions?(\s*count)?$/i),
+  };
+}
+
+function parseCSVFull(text){
+  const rows = [];
+  let row = [], cell = '', q = false;
+  for(let i = 0; i < text.length; i++){
+    const c = text[i];
+    if(q){
+      if(c === '"'){
+        if(text[i+1] === '"'){ cell += '"'; i++; }
+        else q = false;
+      } else cell += c;
+    } else {
+      if(c === '"') q = true;
+      else if(c === ','){ row.push(cell); cell = ''; }
+      else if(c === '\r'){ /* ignore */ }
+      else if(c === '\n'){ row.push(cell); rows.push(row); row = []; cell = ''; }
+      else cell += c;
+    }
+  }
+  if(cell !== '' || row.length){ row.push(cell); rows.push(row); }
+  return rows;
+}
+
+async function fetchLndData(){
+  try{
+    const resp = await fetch(LND_CSV_URL, {method:'GET', mode:'cors'});
+    if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const rows = parseCSVFull(await resp.text());
+    if(rows.length < 3) throw new Error('L&D sheet is empty or missing data');
+    
+    const headers = rows[1].map(h => String(h||'').trim());   // Row 2 = headers
+    LND_COL = resolveLndColumns(headers);
+    const keepCols = Object.values(LND_COL).filter(Boolean);
+    
+    LND_DATA = rows.slice(2)                                    // Row 3 onward
+      .map(r => {
+        const o = {};
+        headers.forEach((h,i) => { if(h && o[h]===undefined) o[h] = (r[i]||'').trim(); });
+        o.__inv = (r[9]||'').trim();    // Column J — Invited
+        o.__att = (r[10]||'').trim();   // Column K — Attended
+        o.__conv = (r[11]||'').trim();  // Column L — Attendance Conversion %
+        return o;
+      })
+      .filter(o => keepCols.some(c => o[c]));
+    
+    // Merge values that differ only by case or extra spaces (SUMIFS treats them as the same)
+    const canonMap = {};
+    const clean = v => String(v || '').replace(/\s+/g, ' ').trim();
+    LND_DATA.forEach(o => {
+      ['month','year','func','trainer'].forEach(k => {
+        const col = LND_COL[k];
+        if(!col) return;
+        const v = clean(o[col]);
+        if(!v){ o[col] = ''; return; }
+        const key = k + '|' + v.toLowerCase();
+        if(!canonMap[key]) canonMap[key] = v;
+        o[col] = canonMap[key];
+      });
+    });
+    
+    LND_READY = true;
+    LND_ERROR = '';
+    console.log('✅ L&D data loaded:', LND_DATA.length, 'rows');
+  }catch(e){
+    console.error('❌ L&D fetch error:', e.message);
+    LND_ERROR = e.message;
+  }
+  buildLndSlicers();
+  if(currentSection === 'training' && currentSubTab === 'ld') renderLnd();
+}
+
+function getLndAvailable(key){
+  const col = LND_COL[key];
+  if(!col) return [];
+  const base = LND_DATA.filter(r => LND_FILTERS.every(f =>
+    f.key === key || !lndSel[f.key].size || lndSel[f.key].has(r[LND_COL[f.key]])));
+  return [...new Set(base.map(r => r[col]).filter(v => v))].sort();
+}
+
+function lndFiltered(){
+  return LND_DATA.filter(r => LND_FILTERS.every(f =>
+    !lndSel[f.key].size || lndSel[f.key].has(r[LND_COL[f.key]])));
+}
+
+function buildLndSlicers(){
+  const bar = document.getElementById('lndSlicersBar');
+  bar.innerHTML = LND_FILTERS.map(f => `
+    <div class="sl-wrap">
+      <button class="sl-btn" data-lnd="${f.key}" id="lbtn_${f.key}">${f.label}</button>
+      <div class="sl-drop" id="ldrop_${f.key}">
+        <div class="sl-search"><input type="text" placeholder="Search…" data-lsrch="${f.key}"></div>
+        <div class="sl-actions">
+          <button class="sl-action-btn" data-lall="${f.key}">Select All</button>
+          <button class="sl-action-btn" data-lclr="${f.key}">Clear</button>
+        </div>
+        <div class="sl-list" id="llist_${f.key}"></div>
+      </div>
+    </div>`).join('') + `<button class="clear-btn" id="lndClearAll">✕ Clear All</button>`;
+  
+  if(!bar.dataset.bound){
+    bar.addEventListener('click', onLndBarClick);
+    bar.addEventListener('input', e => {
+      const k = e.target.dataset && e.target.dataset.lsrch;
+      if(k) filterLndList(k);
+    });
+    bar.dataset.bound = '1';
+  }
+  refreshLndFilters();
+}
+
+function onLndBarClick(e){
+  const t = e.target;
+  const btn = t.closest('.sl-btn');
+  if(btn){
+    const drop = document.getElementById('ldrop_' + btn.dataset.lnd);
+    const wasOpen = drop.classList.contains('open');
+    closeAllDrops();
+    if(!wasOpen) drop.classList.add('open');
+    return;
+  }
+  const item = t.closest('.sl-item');
+  if(item){
+    const s = lndSel[item.dataset.key], v = item.dataset.val;
+    if(s.has(v)) s.delete(v); else s.add(v);
+    renderLnd();
+    return;
+  }
+  if(t.dataset.lall){
+    const k = t.dataset.lall;
+    getLndAvailable(k).forEach(v => lndSel[k].add(v));
+    renderLnd();
+    return;
+  }
+  if(t.dataset.lclr){
+    lndSel[t.dataset.lclr].clear();
+    renderLnd();
+    return;
+  }
+  if(t.id === 'lndClearAll'){
+    LND_FILTERS.forEach(f => lndSel[f.key].clear());
+    renderLnd();
+  }
+}
+
+function filterLndList(k){
+  const q = (document.querySelector(`[data-lsrch="${k}"]`)?.value || '').toLowerCase();
+  document.querySelectorAll(`#llist_${k} .sl-item`).forEach(it => {
+    it.style.display = it.dataset.val.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+function refreshLndFilters(){
+  LND_FILTERS.forEach(f => {
+    const sel = lndSel[f.key];
+    const btn = document.getElementById('lbtn_' + f.key);
+    if(btn){
+      btn.textContent = sel.size === 0 ? f.label : sel.size === 1 ? [...sel][0] : `${f.label} (${sel.size})`;
+      btn.classList.toggle('active', sel.size > 0);
+    }
+    const list = document.getElementById('llist_' + f.key);
+    if(!list) return;
+    list.innerHTML = getLndAvailable(f.key).map(v => `
+      <div class="sl-item" data-key="${f.key}" data-val="${escH(v)}">
+        <input type="checkbox" ${sel.has(v) ? 'checked' : ''}><label>${escH(v)}</label>
+      </div>`).join('');
+    filterLndList(f.key);
+  });
+}
+
+function renderLndKpis(data){
+  const num = (r,c) => parseFloat(String(r[c]||'').replace(/,/g,'')) || 0;
+  const invited = LND_COL.invited ? data.reduce((s,r) => s + num(r, LND_COL.invited), 0) : null;
+  const attended = LND_COL.attended ? data.reduce((s,r) => s + num(r, LND_COL.attended), 0) : null;
+  const convVals = LND_COL.conv
+    ? data.map(r => normalizePercentage(r[LND_COL.conv])).filter(v => v != null && !isNaN(v))
+    : [];
+  const convAvg = convVals.length ? convVals.reduce((a,b) => a + b, 0) / convVals.length : null;
+  
+  const sessions = LND_COL.sessions ? data.reduce((s,r) => s + num(r, LND_COL.sessions), 0) : data.length;
+  
+  const kpis = [
+    {l:'Invited Participants', v:invited, f:'n', c:'cb'},
+    {l:'Attended Participants', v:attended, f:'n', c:'cg'},
+    {l:'Attendance Conversion %', v:convAvg, f:'p', c:'cp'},
+    {l:'Sessions', v:sessions, f:'n', c:'cb'},
+  ];
+  document.getElementById('kpiStrip').innerHTML = kpis.map(k => `
+    <div class="kpi ${k.c}">
+      <div class="kpi-lbl">${k.l}</div>
+      <div class="kpi-val ${k.c}">${fmt(k.v, k.f)}</div>
+    </div>`).join('');
+}
+
+function renderLnd(){
+  const main = document.getElementById('mainArea');
+  if(!LND_READY){
+    document.getElementById('kpiStrip').innerHTML = '';
+    main.innerHTML = LND_ERROR
+      ? `<div class="placeholder-page"><div class="placeholder-content"><div class="placeholder-icon">❌</div><div class="placeholder-title">L&D Data Load Error</div><div class="placeholder-text">${escH(LND_ERROR)}</div></div></div>`
+      : `<div class="placeholder-page"><div class="placeholder-content"><div class="placeholder-icon">⏳</div><div class="placeholder-title">Loading L&D Data...</div></div></div>`;
+    return;
+  }
+  const data = lndFiltered();
+  refreshLndFilters();
+  renderLndKpis(data);
+  renderLndCharts(data);
+}
+
+function lndGroup(data, gKey){
+  const groups = {};
+  data.forEach(r => {
+    const g = (LND_COL[gKey] && r[LND_COL[gKey]]) || '(blank)';
+    (groups[g] = groups[g] || []).push(r);
+  });
+  return groups;
+}
+
+function lndSumBy(groups, col){
+  return Object.keys(groups).sort().map(g =>
+    groups[g].reduce((s,r) => s + (parseFloat(String(r[col]||'').replace(/,/g,'')) || 0), 0));
+}
+
+function lndAvgBy(groups, col){
+  return Object.keys(groups).sort().map(g => {
+    const vals = groups[g].map(r => normalizePercentage(r[col])).filter(v => v != null && !isNaN(v));
+    return vals.length ? vals.reduce((a,b) => a + b, 0) / vals.length : null;
+  });
+}
+
+function renderLndCharts(data){
+  const fnSelected = lndSel.func.size > 0;
+  const emptyMsg = '<div style="display:flex;align-items:center;justify-content:center;height:100%;min-height:200px;color:var(--muted);font-size:12px;text-align:center;padding:20px;">Select a Function from the filter above to see this chart</div>';
+  
+  document.getElementById('mainArea').innerHTML = `
+    <div class="charts-grid g1">
+      <div class="ch-card"><div class="ch-title">Attendance Conversion % by Function</div><div class="ch-wrap">${fnSelected ? '<canvas id="l2"></canvas>' : emptyMsg}</div></div>
+    </div>
+    <div class="charts-grid g1">
+      <div class="ch-card"><div class="ch-title">Attendance Conversion % by Trainer</div><div class="ch-wrap"><canvas id="l3"></canvas></div></div>
+    </div>`;
+  
+  if(chartInst.l1){ chartInst.l1.destroy(); delete chartInst.l1; }
+  if(fnSelected){
+    const fg = lndGroup(data, 'func');
+    const fl = Object.keys(fg).sort();
+    mkChart('l2', 'bar', fl, [
+      {label:'Attendance Conversion %', data:lndAvgBy(fg, LND_COL.conv), backgroundColor:'rgba(124,77,255,.7)', borderWidth:0, borderRadius:6},
+    ], {isPct:true});
+  } else if(chartInst.l2){
+    chartInst.l2.destroy(); delete chartInst.l2;
+  }
+  
+  const tg = lndGroup(data, 'trainer');
+  const tl = Object.keys(tg).sort();
+  mkChart('l3', 'bar', tl, [
+    {label:'Attendance Conversion %', data:lndAvgBy(tg, LND_COL.conv), backgroundColor:'rgba(0,151,167,.7)', borderWidth:0, borderRadius:6},
+  ], {isPct:true});
+}
+
 // TAB 5: EXITS
 function tabExits(main,data){
   main.innerHTML=`<div class="charts-grid g1"><div class="ch-card"><div class="ch-title">Total Attrition % by Process</div><div class="ch-wrap"><canvas id="c1"></canvas></div></div></div>`;
@@ -933,6 +1235,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
 renderSubTabs();
 fetchData();
+fetchLndData();
 </script>
 
 </body>
