@@ -20,16 +20,69 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
 
-/* ─ MAIN NAV BAR (3 sections) ─ */
-.main-nav{flex-shrink:0;background:var(--panel);border-bottom:2px solid var(--accent);
-  padding:12px 20px;display:flex;align-items:center;gap:20px;box-shadow:0 2px 4px rgba(0,0,0,.05);}
-.nav-title{font-size:14px;font-weight:700;color:var(--text);flex-shrink:0;}
-.main-sections{display:flex;gap:8px;flex-shrink:0;}
-.main-sec-btn{padding:8px 20px;font-size:12px;font-weight:600;color:var(--text);
-  background:var(--card);border:2px solid var(--border);border-radius:6px;cursor:pointer;
-  font-family:var(--font);transition:all .25s;white-space:nowrap;}
-.main-sec-btn:hover{border-color:var(--accent);color:var(--accent);}
-.main-sec-btn.active{background:var(--accent);color:#ffffff;border-color:var(--accent);}
+/* ─ MAIN CONTAINER ─ */
+.main-container{display:flex;height:100%;}
+
+/* ─ LEFT SIDEBAR MENU ─ */
+.sidebar{position:fixed;left:0;top:0;width:260px;height:100%;background:var(--panel);
+  border-right:1px solid var(--border);z-index:1000;display:flex;flex-direction:column;
+  transform:translateX(-100%);transition:transform .3s ease;overflow-y:auto;}
+.sidebar.open{transform:translateX(0);}
+.sidebar-header{padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.sidebar-title{font-size:13px;font-weight:700;color:var(--text);}
+.sidebar-body{flex:1;overflow-y:auto;padding:8px 0;}
+.menu-section{padding:8px 0;border-bottom:1px solid var(--border);}
+.menu-section:last-child{border-bottom:none;}
+.menu-section-title{padding:10px 16px;font-size:11px;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.5px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;}
+.menu-section-toggle{font-size:10px;transition:transform .2s;}
+.menu-section-toggle.open{transform:rotate(180deg);}
+.menu-items{display:none !important;max-height:0;overflow:hidden;transition:all .2s ease;}
+.menu-items.open{display:flex !important;flex-direction:column;max-height:500px;}
+.menu-item{padding:8px 20px;font-size:12px;color:var(--muted2);cursor:pointer;transition:all .15s;}
+.menu-item:hover{color:var(--accent);background:rgba(30,136,229,.05);}
+.menu-item.active{color:var(--accent);background:rgba(30,136,229,.1);font-weight:600;}
+.sidebar-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.3);
+  z-index:999;display:none;}
+.sidebar-overlay.open{display:block;}
+
+/* ─ MENU TOGGLE BUTTON ─ */
+.menu-toggle{position:absolute;top:12px;left:12px;width:36px;height:36px;
+  background:var(--card);border:1px solid var(--border2);border-radius:6px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;color:var(--text);font-size:18px;
+  z-index:500;transition:all .2s;}
+.menu-toggle:hover{border-color:var(--accent);color:var(--accent);}
+
+/* ─ RIGHT CONTENT WRAPPER ─ */
+.content-wrapper{flex:1;display:flex;flex-direction:column;height:100%;}
+
+/* ─ TOP BAR WITH TITLE & CONTROLS ─ */
+.top-bar{flex-shrink:0;background:var(--panel);border-bottom:1px solid var(--border);
+  padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;}
+.top-left{display:flex;align-items:center;gap:12px;flex:1;}
+.title-group{display:flex;align-items:center;gap:8px;}
+.title-icon{width:32px;height:32px;background:linear-gradient(135deg,var(--accent),#42a5f5);
+  border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;}
+.title-text{display:flex;flex-direction:column;}
+.title-main{font-size:14px;font-weight:700;color:var(--text);}
+.title-sub{font-size:10px;color:var(--muted2);}
+.top-right{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.control-btn{height:32px;padding:0 12px;background:var(--card);border:1px solid var(--border2);
+  border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;color:var(--muted);
+  font-family:var(--font);transition:all .15s;white-space:nowrap;}
+.control-btn:hover{border-color:var(--accent);color:var(--accent);}
+.control-btn.active{background:rgba(30,136,229,.1);color:var(--accent);border-color:var(--accent);}
+.status-badge{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted2);}
+.status-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+
+/* ─ HEADER ─ */
+.hdr{flex-shrink:0;background:var(--panel);border-bottom:1px solid var(--border);
+  padding:10px 20px;display:flex;align-items:center;justify-content:space-between;}
+.hdr-left{display:flex;align-items:center;gap:10px;}
+.hdr-right{display:flex;align-items:center;gap:14px;}
+.badge-pill{background:var(--card);border:1px solid var(--border2);border-radius:20px;
+  padding:3px 10px;font-size:11px;color:var(--muted2);font-family:var(--mono);}
 
 /* ─ SUB-TABS BAR ─ */
 .sub-tabs{flex-shrink:0;background:var(--panel);border-bottom:1px solid var(--border);
@@ -39,21 +92,6 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   white-space:nowrap;transition:all .2s;text-transform:uppercase;letter-spacing:.5px;}
 .sub-tab-btn:hover{color:var(--text);}
 .sub-tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
-
-/* ─ HEADER ─ */
-.hdr{flex-shrink:0;background:var(--panel);border-bottom:1px solid var(--border);
-  padding:10px 20px;display:flex;align-items:center;justify-content:space-between;}
-.hdr-left{display:flex;align-items:center;gap:10px;}
-.hdr-icon{width:32px;height:32px;background:linear-gradient(135deg,var(--accent),#42a5f5);
-  border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;}
-.hdr-title{font-size:15px;font-weight:700;}
-.hdr-sub{font-size:11px;color:var(--muted2);margin-top:1px;}
-.hdr-right{display:flex;align-items:center;gap:14px;}
-.badge-pill{background:var(--card);border:1px solid var(--border2);border-radius:20px;
-  padding:3px 10px;font-size:11px;color:var(--muted2);font-family:var(--mono);}
-.status-dot{width:7px;height:7px;border-radius:50%;background:var(--green);
-  box-shadow:0 0 6px var(--green);animation:pulse 2s infinite;}
-@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
 
 /* ─ FETCH STATUS ─ */
 .fetch-bar{flex-shrink:0;display:flex;align-items:center;gap:8px;padding:4px 20px;
@@ -78,6 +116,10 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .sl-search input{width:100%;background:var(--bg);border:1px solid var(--border2);
   border-radius:5px;color:var(--text);padding:5px 8px;font-size:11px;font-family:var(--font);outline:none;}
 .sl-search input:focus{border-color:var(--accent);}
+.sl-actions{display:flex;gap:4px;padding:6px 8px;border-bottom:1px solid var(--border);}
+.sl-action-btn{flex:1;padding:4px 8px;background:none;border:1px solid var(--border2);
+  border-radius:4px;font-size:10px;font-weight:600;color:var(--muted);cursor:pointer;font-family:var(--font);}
+.sl-action-btn:hover{border-color:var(--accent);color:var(--accent);}
 .sl-list{overflow-y:auto;max-height:220px;}
 .sl-item{display:flex;align-items:center;gap:7px;padding:6px 10px;cursor:pointer;}
 .sl-item:hover{background:rgba(30,136,229,.07);}
@@ -108,14 +150,13 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 /* ─ TABS ─ */
 .tabs-bar{flex-shrink:0;background:var(--panel);border-bottom:1px solid var(--border);
   padding:0 20px;display:flex;gap:0;overflow-x:auto;}
-.tab-btn{padding:9px 16px;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;
+.tab-btn{padding:9px 16px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;
   border:none;background:none;font-family:var(--font);border-bottom:2px solid transparent;
-  white-space:nowrap;transition:all .15s;text-transform:uppercase;letter-spacing:.4px;}
+  white-space:nowrap;transition:all .15s;text-transform:capitalize;letter-spacing:.3px;}
 .tab-btn:hover{color:var(--muted2);}
 .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
 
 /* ─ MAIN SCROLL AREA ─ */
-.page-wrap{display:flex;flex-direction:column;height:100%;}
 .main{flex:1;overflow-y:auto;padding:14px 20px 24px;}
 
 /* ─ PLACEHOLDER PAGE ─ */
@@ -142,69 +183,120 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 </head>
 <body>
 
-<div class="page-wrap">
-
-  <!-- MAIN NAVIGATION (3 sections) -->
-  <div class="main-nav">
-    <div class="nav-title">📊 CarTrade Operations</div>
-    <div class="main-sections">
-      <button class="main-sec-btn" data-section="recruitment">Recruitment</button>
-      <button class="main-sec-btn" data-section="hr-ops">HR Operations</button>
-      <button class="main-sec-btn active" data-section="training">Training</button>
+<div class="main-container">
+  <!-- SIDEBAR OVERLAY -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+  
+  <!-- SIDEBAR MENU -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">📊 Menu</div>
     </div>
-  </div>
-
-  <!-- SUB-TABS -->
-  <div class="sub-tabs" id="subTabs"></div>
-
-  <!-- HEADER -->
-  <div class="hdr" id="hdr">
-    <div class="hdr-left">
-      <div class="hdr-icon">🎓</div>
-      <div>
-        <div class="hdr-title" id="hdrTitle">New Hire Training</div>
-        <div class="hdr-sub" id="hdrSub">Analytics Dashboard</div>
+    <div class="sidebar-body">
+      <!-- Recruitment -->
+      <div class="menu-section">
+        <div class="menu-section-title" onclick="toggleMenuSection(this)">
+          Recruitment
+          <span class="menu-section-toggle">▼</span>
+        </div>
+        <div class="menu-items">
+          <div class="menu-item" onclick="openPage('recruitment','open-positions')">Open Positions</div>
+          <div class="menu-item" onclick="openPage('recruitment','hiring-funnel')">Hiring Funnel</div>
+        </div>
+      </div>
+      
+      <!-- HR Operations -->
+      <div class="menu-section">
+        <div class="menu-section-title" onclick="toggleMenuSection(this)">
+          HR Operations
+          <span class="menu-section-toggle">▼</span>
+        </div>
+        <div class="menu-items">
+          <div class="menu-item" onclick="openPage('hr-ops','attrition')">Attrition</div>
+          <div class="menu-item" onclick="openPage('hr-ops','manpower-count')">Manpower Count</div>
+        </div>
+      </div>
+      
+      <!-- Training -->
+      <div class="menu-section">
+        <div class="menu-section-title" onclick="toggleMenuSection(this)">
+          Training
+          <span class="menu-section-toggle">▼</span>
+        </div>
+        <div class="menu-items">
+          <div class="menu-item active" onclick="openPage('training','new-hire-training')">New Hire Training</div>
+          <div class="menu-item" onclick="openPage('training','ld')">L&D</div>
+          <div class="menu-item" onclick="openPage('training','gurukul')">Gurukul</div>
+        </div>
       </div>
     </div>
-    <div class="hdr-right">
-      <div class="badge-pill" id="rcBadge">— rows</div>
-      <div style="display:flex;align-items:center;gap:6px;">
-        <div class="status-dot" id="liveStatus"></div>
-        <span style="font-size:11px;color:var(--muted2)" id="srcLabel">Loading</span>
+  </div>
+
+  <!-- MAIN CONTENT WRAPPER -->
+  <div class="content-wrapper">
+    <!-- TOP BAR WITH TITLE AND CONTROLS -->
+    <div class="top-bar">
+      <button class="menu-toggle" id="menuToggle" onclick="toggleMenu()">☰</button>
+      <div class="top-left">
+        <div class="title-group">
+          <div class="title-icon">🎓</div>
+          <div class="title-text">
+            <div class="title-main" id="pageTitle">Card Trade Tech</div>
+            <div class="title-sub" id="pageSub">Analytics Dashboard</div>
+          </div>
+        </div>
+      </div>
+      <div class="top-right">
+        <button class="control-btn" id="lblToggle" onclick="toggleGlobalLabels()">Labels OFF</button>
+        <button class="control-btn" onclick="refreshData()" title="Refresh data">🔄</button>
+        <div class="status-badge">
+          <div class="status-dot"></div>
+          <span id="statusText">Live</span>
+        </div>
       </div>
     </div>
+
+    <!-- HEADER (shows row count) -->
+    <div class="hdr" id="hdr" style="display:none;">
+      <div class="hdr-left"></div>
+      <div class="hdr-right">
+        <div class="badge-pill" id="rcBadge" style="display:none;"></div>
+      </div>
+    </div>
+
+    <!-- SUB-TABS -->
+    <div class="sub-tabs" id="subTabs" style="display:none;"></div>
+
+    <!-- FETCH STATUS -->
+    <div class="fetch-bar" id="fetchBar" style="display:none;">
+      <span id="fetchStatus">⏳ Loading data…</span>
+    </div>
+
+    <!-- TABS BAR (for Training → New Hire Training only) -->
+    <div class="tabs-bar" id="tabsBar" style="display:none;">
+      <button class="tab-btn active" data-tab="batch">BATCHES</button>
+      <button class="tab-btn" data-tab="trng">TRAINING SCHEDULE</button>
+      <button class="tab-btn" data-tab="quality">QUALITY PKT CERTIFICATION</button>
+      <button class="tab-btn" data-tab="kra">KRA CERTIFICATION</button>
+      <button class="tab-btn" data-tab="exits">EXITS - TRAINING PHASE</button>
+    </div>
+
+    <!-- SLICERS (for Training → New Hire Training only) -->
+    <div class="slicers" id="slicersBar" style="display:none;">
+      <button class="clear-btn" id="clearAllBtn">✕ Clear All</button>
+    </div>
+
+    <!-- SUMMARY LABEL -->
+    <div id="summaryLabel" style="display:none;">
+      <span>● Overall Summary</span>
+    </div>
+
+    <!-- KPI STRIP -->
+    <div class="kpi-strip" id="kpiStrip" style="display:none;"></div>
+
+    <!-- MAIN CONTENT AREA -->
+    <div class="main" id="mainArea"></div>
   </div>
-
-  <!-- FETCH STATUS -->
-  <div class="fetch-bar" id="fetchBar">
-    <span id="fetchStatus">⏳ Fetching live data from Google Sheets…</span>
-  </div>
-
-  <!-- TABS BAR (for Training → New Hire Training only) -->
-  <div class="tabs-bar" id="tabsBar" style="display:none;">
-    <button class="tab-btn active" data-tab="batch">Batches</button>
-    <button class="tab-btn" data-tab="trng">Training Schedule</button>
-    <button class="tab-btn" data-tab="pkt">Quality PKT Certification</button>
-    <button class="tab-btn" data-tab="kra">KRA Certification</button>
-    <button class="tab-btn" data-tab="exits">Exits — Training Phase</button>
-  </div>
-
-  <!-- SLICERS (for Training → New Hire Training only) -->
-  <div class="slicers" id="slicersBar" style="display:none;">
-    <button class="clear-btn" id="clearAllBtn">✕ Clear All</button>
-  </div>
-
-  <!-- SUMMARY LABEL -->
-  <div id="summaryLabel" style="display:none;">
-    <span>● Overall Summary</span>
-  </div>
-
-  <!-- KPI STRIP -->
-  <div class="kpi-strip" id="kpiStrip" style="display:none;"></div>
-
-  <!-- MAIN CONTENT AREA -->
-  <div class="main" id="mainArea"></div>
-
 </div>
 
 <script>
@@ -213,7 +305,7 @@ Chart.register(ChartDataLabels);
 // ═══════════════════════════════════════════════════════════
 //  GOOGLE SHEET CSV CONFIGURATION
 // ═══════════════════════════════════════════════════════════
-const SID = '1jEqlfONZV3HrYTCQYhCyoucDS2LcUKfPEMLkC3m1B-0';
+const SID = '15bfez78kZ2S1hZ3nynVGF1pPnjulJ3cCD3lBj085dyE';
 const GID = '2099952935';
 const CSV_URL = `https://docs.google.com/spreadsheets/d/${SID}/export?format=csv&gid=${GID}`;
 
@@ -225,6 +317,8 @@ let currentSubTab = 'new-hire-training';
 let currentTab = 'batch';
 let DATA = [];
 const chartInst = {};
+let globalLabels = false;
+let autoRefreshInterval = null;
 
 // Section definitions
 const SECTIONS = {
@@ -260,17 +354,39 @@ const SLICER_LABELS = {'Batches':'Batches','Process':'Process','Trainer Name':'T
 const slicerSel = {};
 SLICER_KEYS.forEach(k => slicerSel[k] = new Set());
 
-// ─ MAIN SECTION HANDLERS ─
-document.querySelectorAll('.main-sec-btn').forEach(btn => {
-  btn.addEventListener('click', function() {
-    document.querySelectorAll('.main-sec-btn').forEach(b => b.classList.remove('active'));
-    this.classList.add('active');
-    currentSection = this.dataset.section;
-    currentSubTab = SECTIONS[currentSection].subTabs[0].id;
-    renderSubTabs();
-    renderPage();
-  });
-});
+// ─ MENU TOGGLE ─
+function toggleMenu() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  sidebar.classList.toggle('open');
+  overlay.classList.toggle('open');
+}
+
+function toggleMenuSection(el) {
+  const items = el.nextElementSibling;
+  const toggle = el.querySelector('.menu-section-toggle');
+  if(items) {
+    items.classList.toggle('open');
+  }
+  if(toggle) {
+    toggle.classList.toggle('open');
+  }
+}
+
+function openPage(section, subTab) {
+  closeSidebarMenu();
+  currentSection = section;
+  currentSubTab = subTab;
+  renderSubTabs();
+  renderPage();
+}
+
+function closeSidebarMenu() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+}
+
+document.getElementById('sidebarOverlay')?.addEventListener('click', closeSidebarMenu);
 
 // ─ TAB HANDLERS ─
 document.addEventListener('click', e => {
@@ -309,14 +425,16 @@ function renderSubTabs() {
 function renderPage() {
   const section = SECTIONS[currentSection];
   const subTabLabel = section.subTabs.find(t => t.id === currentSubTab)?.label || '';
-  document.getElementById('hdrTitle').textContent = `${section.name} — ${subTabLabel}`;
+  document.getElementById('pageTitle').textContent = 'CarTrade Tech';
+  document.getElementById('pageSub').textContent = `${section.name} — ${subTabLabel}`;
   
   const isNHT = currentSection === 'training' && currentSubTab === 'new-hire-training';
   document.getElementById('tabsBar').style.display = isNHT ? 'flex' : 'none';
   document.getElementById('slicersBar').style.display = isNHT ? 'flex' : 'none';
   document.getElementById('summaryLabel').style.display = isNHT ? 'flex' : 'none';
   document.getElementById('kpiStrip').style.display = isNHT ? 'grid' : 'none';
-  document.getElementById('fetchBar').style.display = isNHT ? 'flex' : 'none';
+  document.getElementById('fetchBar').style.display = 'none';
+  document.getElementById('hdr').style.display = isNHT ? 'flex' : 'none';
   
   if (isNHT && DATA.length > 0) {
     renderTab();
@@ -375,12 +493,8 @@ function parseCSV(text) {
 async function fetchData() {
   const bar = document.getElementById('fetchBar');
   const status = document.getElementById('fetchStatus');
-  const srcLbl = document.getElementById('srcLabel');
   
   try {
-    console.log('🔍 Fetching from:', CSV_URL);
-    status.textContent = '⏳ Fetching live data from Google Sheets…';
-    
     const resp = await fetch(CSV_URL, { method: 'GET', mode: 'cors' });
     
     if (!resp.ok) {
@@ -394,12 +508,10 @@ async function fetchData() {
       throw new Error('Sheet is empty or missing data');
     }
     
-    // Row 1 = Categories, Row 2 = Sub-headers (merged), Row 3 = Headers, Row 4 = Totals, Row 5+ = Data
-    // Merge rows[1] and rows[2] to handle merged headers across Row 2-Row 3 in Excel
     const headers = rows[2].map((h, i) => {
       const h2 = (rows[1] && rows[1][i]) ? String(rows[1][i]).trim() : '';
       const h3 = h ? String(h).trim() : '';
-      return h2 || h3;
+      return { h2, h3 };
     });
     const dataRows = rows.slice(4);
     
@@ -407,39 +519,45 @@ async function fetchData() {
       .filter(row => row.length > 5 && row[0] && row[0].trim())
       .map(row => {
         const obj = {};
-        headers.forEach((header, i) => {
-          obj[header.trim()] = (row[i] || '').trim();
+        headers.forEach((hd, i) => {
+          const val = (row[i] || '').trim();
+          if (hd.h3) obj[hd.h3] = val;
+          if (hd.h2 && obj[hd.h2] === undefined) obj[hd.h2] = val;
         });
         return obj;
       });
     
     console.log('✅ Data loaded:', DATA.length, 'rows');
     
-    status.textContent = `✅ Live data loaded — ${DATA.length} rows from Google Sheets`;
-    status.style.color = 'var(--green)';
-    srcLbl.textContent = 'Live';
-    srcLbl.style.color = 'var(--green)';
-    document.getElementById('liveStatus').style.background = 'var(--green)';
-    setTimeout(() => { bar.style.display = 'none'; }, 3000);
+    document.getElementById('statusText').textContent = 'Live';
+    bar.style.display = 'none';
     
     buildSlicers();
     renderPage();
   } catch(e) {
     console.error('❌ Fetch error:', e.message);
-    status.textContent = `⚠️ Failed to load live data: ${e.message}`;
-    status.style.color = 'var(--yellow)';
-    srcLbl.textContent = 'Error';
-    srcLbl.style.color = 'var(--red)';
-    document.getElementById('liveStatus').style.background = 'var(--red)';
+    status.textContent = `⚠️ Failed to load data`;
+    document.getElementById('statusText').textContent = 'Error';
     document.getElementById('mainArea').innerHTML = '<div class="placeholder-page"><div class="placeholder-content"><div class="placeholder-icon">❌</div><div class="placeholder-title">Data Load Error</div><div class="placeholder-text">' + e.message + '</div></div></div>';
   }
 }
 
+function refreshData() {
+  document.getElementById('statusText').textContent = 'Refreshing...';
+  fetchData();
+}
+
 // ═══════════════════════════════════════════════════════════
-//  SLICERS
+//  SLICERS WITH SELECT ALL / CLEAR ALL
 // ═══════════════════════════════════════════════════════════
 function getFiltered() {
   return DATA.filter(r => SLICER_KEYS.every(k => !slicerSel[k].size || slicerSel[k].has(r[k])));
+}
+
+function getAvailableValues(key, baseData) {
+  let vals = [...new Set(baseData.map(r => r[key]).filter(v => v != null && v !== ''))];
+  vals.sort();
+  return vals;
 }
 
 function buildSlicers() {
@@ -451,9 +569,8 @@ function buildSlicers() {
   }
 
   SLICER_KEYS.forEach(key => {
-    let vals = [...new Set(DATA.map(r => r[key]).filter(v => v != null && v !== ''))];
-    vals.sort();
-
+    const availableVals = getAvailableValues(key, DATA);
+    
     const id = 'sl_' + key.replace(/\W/g,'_');
     const wrap = document.createElement('div');
     wrap.className = 'sl-wrap';
@@ -461,8 +578,12 @@ function buildSlicers() {
       <button class="sl-btn" id="sbtn_${id}">${SLICER_LABELS[key]}</button>
       <div class="sl-drop" id="sdrop_${id}">
         <div class="sl-search"><input type="text" placeholder="Search…" id="ssrch_${id}"></div>
+        <div class="sl-actions">
+          <button class="sl-action-btn" onclick="selectAllValues('${id}','${key}')">Select All</button>
+          <button class="sl-action-btn" onclick="clearSingleFilter('${key}','${id}')">Clear</button>
+        </div>
         <div class="sl-list" id="slist_${id}">
-          ${vals.map(v => `<div class="sl-item" data-key="${key}" data-id="${id}"><input type="checkbox"><label>${v}</label></div>`).join('')}
+          ${availableVals.map(v => `<div class="sl-item" data-key="${key}" data-id="${id}" data-val="${v}"><input type="checkbox"><label>${v}</label></div>`).join('')}
         </div>
       </div>`;
     bar.insertBefore(wrap, clearBtn);
@@ -484,9 +605,11 @@ function buildSlicers() {
       const val = item.querySelector('label').textContent;
       cb.checked = !cb.checked;
       if (cb.checked) slicerSel[key].add(val); else slicerSel[key].delete(val);
-      updateBtn(key, id); refresh();
+      updateBtn(key, id); 
+      updateFilteredDropdowns();
+      refresh();
     }
-    if (e.target.closest('#clearAllBtn')) clearAll();
+    if (e.target.closest('#clearAllBtn')) clearAllFilters();
   });
 
   document.getElementById('slicersBar').addEventListener('input', e => {
@@ -504,6 +627,55 @@ function buildSlicers() {
   });
 }
 
+function selectAllValues(id, key) {
+  const filtered = getFiltered();
+  const availableVals = getAvailableValues(key, filtered);
+  availableVals.forEach(v => slicerSel[key].add(v));
+  document.querySelectorAll(`#slist_${id} input`).forEach(cb => cb.checked = true);
+  updateBtn(key, id);
+  updateFilteredDropdowns();
+  refresh();
+}
+
+function clearSingleFilter(key, id) {
+  slicerSel[key].clear();
+  document.querySelectorAll(`#slist_${id} input`).forEach(cb => cb.checked = false);
+  updateBtn(key, id);
+  updateFilteredDropdowns();
+  refresh();
+}
+
+function clearAllFilters() {
+  SLICER_KEYS.forEach(key => {
+    slicerSel[key].clear();
+    const id = 'sl_' + key.replace(/\W/g,'_');
+    document.querySelectorAll(`#slist_${id} input`).forEach(cb => cb.checked = false);
+    updateBtn(key, id);
+  });
+  updateFilteredDropdowns();
+  refresh();
+}
+
+function updateFilteredDropdowns() {
+  const filtered = getFiltered();
+  
+  SLICER_KEYS.forEach(key => {
+    const id = 'sl_' + key.replace(/\W/g,'_');
+    const listEl = document.getElementById(`slist_${id}`);
+    if (!listEl) return;
+    
+    const availableVals = getAvailableValues(key, filtered);
+    const items = listEl.querySelectorAll('.sl-item');
+    
+    items.forEach(item => {
+      const val = item.dataset.val;
+      const isAvailable = availableVals.includes(val);
+      item.style.opacity = isAvailable ? '1' : '.4';
+      item.style.pointerEvents = isAvailable ? 'auto' : 'none';
+    });
+  });
+}
+
 function closeAllDrops() {
   document.querySelectorAll('.sl-drop.open').forEach(d => d.classList.remove('open'));
 }
@@ -514,16 +686,6 @@ function updateBtn(key, id) {
   const lbl = SLICER_LABELS[key];
   btn.textContent = sel.size === 0 ? lbl : sel.size === 1 ? [...sel][0] : `${lbl} (${sel.size})`;
   sel.size > 0 ? btn.classList.add('active') : btn.classList.remove('active');
-}
-
-function clearAll() {
-  SLICER_KEYS.forEach(key => {
-    slicerSel[key].clear();
-    const id = 'sl_' + key.replace(/\W/g,'_');
-    document.querySelectorAll(`#slist_${id} input`).forEach(cb => cb.checked = false);
-    updateBtn(key, id);
-  });
-  refresh();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -589,8 +751,8 @@ function mkChart(id,type,labels,datasets,opts={}){
       responsive:true,maintainAspectRatio:false,
       plugins:{
         legend:{display:datasets.length>1,labels:{color:CC.muted,font:{size:10},boxWidth:10,padding:8}},
-        tooltip:{callbacks:{label:ctx=>{const v=ctx.parsed.y??ctx.parsed;return isPct&&typeof v==='number'?` ${(v*100).toFixed(1)}%`:` ${typeof v==='number'?v.toLocaleString():v}`;}}},
-        datalabels:{display:false,color:'#ffffff',font:{size:9,weight:'600',family:'"JetBrains Mono",monospace'},
+        tooltip:{enabled:true,callbacks:{label:ctx=>{const v=ctx.parsed.y??ctx.parsed;return isPct&&typeof v==='number'?` ${(v*100).toFixed(1)}%`:` ${typeof v==='number'?v.toLocaleString():v}`;}}},
+        datalabels:{display:globalLabels===true,color:'#ffffff',font:{size:9,weight:'600',family:'"JetBrains Mono",monospace'},
           anchor:'end',align:'top',offset:2,clip:false,formatter:exDL||baseFmt},
       },
       scales:(type==='bar'||type==='line')?{
@@ -608,6 +770,20 @@ function refresh() {
   renderTab();
 }
 
+function toggleGlobalLabels() {
+  globalLabels = !globalLabels;
+  const btn = document.getElementById('lblToggle');
+  btn.textContent = globalLabels ? 'Labels ON' : 'Labels OFF';
+  btn.classList.toggle('active', globalLabels);
+  
+  Object.entries(chartInst).forEach(([id, c]) => {
+    if(c && c.options && c.options.plugins && c.options.plugins.datalabels) {
+      c.options.plugins.datalabels.display = globalLabels;
+      c.render();
+    }
+  });
+}
+
 // ═══════════════════════════════════════════════════════════
 //  KPI STRIP
 // ═══════════════════════════════════════════════════════════
@@ -617,7 +793,12 @@ function renderKPIStrip(data) {
   const totalAttr = data.reduce((s,r) => s+(parseFloat(r['Total Attrition'])||0),0);
   const bCount = new Set(data.map(r=>r['Batches'])).size;
   
+  function findKey(pattern){
+    const keys = Object.keys(data[0]||{});
+    return keys.find(k => pattern.test(k)) || null;
+  }
   function wavg(f,isPct=true){
+    if(!f) return null;
     let n=0,d=0;
     data.forEach(r=>{
       const w=parseFloat(r['Headcount (Day 0)'])||0;
@@ -627,13 +808,26 @@ function renderKPIStrip(data) {
     return d?n/d:null;
   }
   
+  function simpleAvg(f){
+    if(!f) return null;
+    let s=0,c=0;
+    data.forEach(r=>{
+      const v=normalizePercentage(r[f]);
+      if(v!=null&&!isNaN(v)){s+=v;c++;}
+    });
+    return c?s/c:null;
+  }
+  
+  const thruputKey = findKey(/thruput\s*conversion/i) || 'Conversion(Training start to end) %';
+  const pktKey = findKey(/^pkt\s*certification\s*%?$/i) || 'PKT Certification %';
+  
   const kpis = [
     {l:'Total Batches',v:bCount,f:'n',c:'cb'},
     {l:'Total Headcount (Day 0)',v:totalHC,f:'n',c:'cb'},
     {l:'Total Training End HC',v:totalEnd,f:'n',c:'cg'},
     {l:'Total Attrition',v:totalAttr,f:'n',c:'cr'},
-    {l:'Avg Conversion %',v:wavg('Conversion(Training start to end) %',true),f:'p',c:'cg'},
-    {l:'Avg PKT Cert %',v:wavg('PKT Certification %',true),f:'p',c:'cp'},
+    {l:'Avg Thruput Conversion %',v:simpleAvg(thruputKey),f:'p',c:'cg'},
+    {l:'PKT Certification %',v:simpleAvg(pktKey),f:'p',c:'cp'},
   ];
   
   document.getElementById('kpiStrip').innerHTML = kpis.map(k => `
@@ -641,7 +835,6 @@ function renderKPIStrip(data) {
       <div class="kpi-lbl">${k.l}</div>
       <div class="kpi-val ${k.c}">${fmt(k.v,k.f)}</div>
     </div>`).join('');
-  document.getElementById('rcBadge').textContent = data.length + ' rows';
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -654,11 +847,19 @@ function renderTab() {
   switch(currentTab) {
     case 'batch': tabBatch(main, filtered); break;
     case 'trng': tabTrng(main, filtered); break;
+    case 'quality': tabQuality(main, filtered); break;
     case 'pkt': tabPKT(main, filtered); break;
     case 'kra': tabKRA(main, filtered); break;
     case 'exits': tabExits(main, filtered); break;
     default: tabBatch(main, filtered);
   }
+}
+
+function tabQuality(main,data){
+  main.innerHTML=`<div class="charts-grid g1"><div class="ch-card"><div class="ch-title">PKT Certification % by Process</div><div class="ch-wrap"><canvas id="c1"></canvas></div></div></div>`;
+  const pkt=groupBy(data,'Process','PKT Certification %','wavg','Headcount (Day 0)',true);
+  const pl=Object.keys(pkt).filter(k=>pkt[k]!==null);
+  mkChart('c1','bar',pl,[{data:pl.map(l=>pkt[l]),backgroundColor:'rgba(30,136,229,.7)',borderWidth:0,borderRadius:6}],{isPct:true,extraOpts:{scales:{y:{ticks:{callback:v=>(v*100).toFixed(0)+'%',max:1},max:1}}}});
 }
 
 // TAB 1: BATCHES
@@ -685,7 +886,7 @@ function tabTrng(main,data){
   mkChart('c1','bar',pl,[{data:pl.map(l=>conv[l]),backgroundColor:'rgba(34,211,238,.7)',borderWidth:0,borderRadius:6}],{isPct:true,extraOpts:{scales:{y:{ticks:{callback:v=>(v*100).toFixed(0)+'%',max:1},max:1}}}});
 }
 
-// TAB 3: QUALITY PKT
+// TAB 3: PKT CERTIFICATION
 function tabPKT(main,data){
   main.innerHTML=`<div class="charts-grid g1"><div class="ch-card"><div class="ch-title">PKT Certification % by Process</div><div class="ch-wrap"><canvas id="c1"></canvas></div></div></div>`;
   const pkt=groupBy(data,'Process','PKT Certification %','wavg','Headcount (Day 0)',true);
@@ -714,6 +915,22 @@ function tabExits(main,data){
 // ═══════════════════════════════════════════════════════════
 //  BOOT
 // ═══════════════════════════════════════════════════════════
+// Initialize Training section as expanded by default
+window.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    const sections = document.querySelectorAll('.menu-section');
+    sections.forEach(section => {
+      const title = section.querySelector('.menu-section-title');
+      if(title && title.textContent.trim() === 'Training') {
+        const items = section.querySelector('.menu-items');
+        const toggle = section.querySelector('.menu-section-toggle');
+        if(items) items.classList.add('open');
+        if(toggle) toggle.classList.add('open');
+      }
+    });
+  }, 10);
+});
+
 renderSubTabs();
 fetchData();
 </script>
