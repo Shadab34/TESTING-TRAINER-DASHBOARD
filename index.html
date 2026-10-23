@@ -179,6 +179,30 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 #summaryLabel{flex-shrink:0;background:var(--panel);border-bottom:1px solid var(--border);
   padding:5px 20px;display:flex;flex-direction:row;align-items:center;gap:8px;}
 #summaryLabel span{font-size:10px;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:.7px;}
+/* ─ ACTIVE COUNT (HR Operations) ─ */
+.ac-heading{font-size:16px;font-weight:700;color:var(--text);}
+.ac-sub{font-size:11px;color:var(--muted2);margin-bottom:12px;}
+.ac-kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:14px;}
+.ac-kpis .kpi{padding:12px 14px;}
+.ac-kpis .kpi-val{font-size:22px;}
+.ac-note{background:rgba(251,192,45,.12);border:1px solid rgba(251,192,45,.5);border-radius:6px;padding:8px 12px;font-size:11px;margin-bottom:12px;}
+.ac-count{font-size:11px;color:var(--muted2);margin-bottom:8px;}
+.ac-filters{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:12px;}
+.ac-filters label{display:flex;flex-direction:column;gap:4px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;}
+.ac-filters input[type=date]{background:var(--panel);border:1px solid var(--border2);border-radius:6px;padding:6px 8px;font-family:var(--font);font-size:12px;color:var(--text);}
+.ac-msg{font-size:12px;color:var(--muted);padding:12px 4px;}
+.ac-table-wrap{max-height:420px;overflow:auto;border:1px solid var(--border);border-radius:6px;background:var(--panel);}
+.ac-table{width:100%;border-collapse:collapse;font-size:12px;}
+.ac-table th{position:sticky;top:0;background:var(--card);text-align:left;padding:8px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);border-bottom:1px solid var(--border);}
+.ac-table td{padding:7px 10px;border-bottom:1px solid var(--border);color:var(--text);}
+.ac-table tr:hover td{background:rgba(30,136,229,.05);}
+.ac-toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-bottom:14px;position:relative;z-index:50;}
+.ac-fl{display:flex;flex-direction:column;gap:4px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;}
+.ac-fl input[type=date],.ac-select{background:var(--panel);border:1px solid var(--border2);border-radius:6px;padding:6px 8px;font-family:var(--font);font-size:12px;color:var(--text);min-width:150px;}
+.ac-hint{text-transform:none;letter-spacing:0;color:var(--muted2);}
+.ac-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+@media (max-width:860px){.ac-row{grid-template-columns:1fr !important;}}
+.ac-empty{font-size:12px;color:var(--muted);display:flex;align-items:center;justify-content:center;height:100%;min-height:200px;text-align:center;padding:20px;}
 </style>
 </head>
 <body>
@@ -213,7 +237,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
         </div>
         <div class="menu-items">
           <div class="menu-item" onclick="openPage('hr-ops','attrition')">Attrition</div>
-          <div class="menu-item" onclick="openPage('hr-ops','manpower-count')">Manpower Count</div>
+          <div class="menu-item" onclick="openPage('hr-ops','active-count')">Active Count</div>
         </div>
       </div>
       
@@ -337,7 +361,7 @@ const SECTIONS = {
     icon: '👥',
     subTabs: [
       {id: 'attrition', label: 'Attrition'},
-      {id: 'manpower-count', label: 'Manpower Count'}
+      {id: 'active-count', label: 'Active Count'}
     ]
   },
   training: {
@@ -445,6 +469,8 @@ function renderPage() {
     renderTab();
   } else if (isNHT) {
     document.getElementById('mainArea').innerHTML = '<div class="placeholder-page"><div class="placeholder-content"><div class="placeholder-icon">⏳</div><div class="placeholder-title">Loading Data...</div></div></div>';
+  } else if (currentSection === 'hr-ops' && currentSubTab === 'active-count') {
+    renderActiveCount();
   } else if (isLnd) {
     renderLnd();
   } else {
@@ -553,6 +579,7 @@ function refreshData() {
   document.getElementById('statusText').textContent = 'Refreshing...';
   fetchData();
   fetchLndData();
+  fetchActiveData();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1204,6 +1231,532 @@ function renderLndCharts(data){
   ], {isPct:true});
 }
 
+// ═══════════════════════════════════════════════════════════
+//  ACTIVE COUNT — HR Operations → Active Count
+// ═══════════════════════════════════════════════════════════
+const AC_SID = '1TpSUi31syyNowsQYy1Af4qxdbM7t384s-5GN3EhLQxE';   // Active Count source spreadsheet
+const AC_SHEET_NAME = 'Active Count';
+const AC_GID = '0';   // gid of the 'Active Count' tab in the source link
+const AC_CSV_URL = `https://docs.google.com/spreadsheets/d/${AC_SID}/export?format=csv&gid=${AC_GID}`;
+const AC_COL_COUNT = 11;   // columns A–K
+const AC_REQUIRED = ['Associate Code','Associate Name','Department','Managers','Work Location','Designation','Date Joined','LWD','Gender','Date of Birth','Branch'];
+
+let AC_DATA = [];
+let AC_READY = false;
+let AC_ERROR = '';
+let AC_MISSING = [];
+let AC_REF = null;      // latest Date Joined in the roster (subtitle only)
+
+// Top filters: From Date, To Date, Department, Tenure, Age
+const AC_FILTERS = { from:'', to:'', ten:'', age:'' };
+const acSel = { dept:new Set() };
+// Tenure filter bands (completed years), min <= value < max
+const AC_TENURE = [
+  {k:'0-5', l:'0–5 Months', min:0, max:6},
+  {k:'6-11', l:'6–11 Months', min:6, max:12},
+  {k:'12-17', l:'1–1.5 Years', min:12, max:18},
+  {k:'18-23', l:'1.5–2 Years', min:18, max:24},
+  {k:'24-35', l:'2–3 Years', min:24, max:36},
+  {k:'36-47', l:'3–4 Years', min:36, max:48},
+  {k:'48-59', l:'4–5 Years', min:48, max:60},
+  {k:'60+', l:'5+ Years', min:60, max:Infinity},
+];
+const AC_AGE = [
+  {k:'u18', l:'Under 18', min:0, max:18},
+  {k:'18-27', l:'18–27', min:18, max:28},
+  {k:'28-37', l:'28–37', min:28, max:38},
+  {k:'38-47', l:'38–47', min:38, max:48},
+  {k:'48-58', l:'48–58', min:48, max:59},
+  {k:'59+', l:'59 and above', min:59, max:Infinity},
+];
+// Age-table band starts: 18–22, 23–28, 29–34, 35–40, 41–46, 47–52, 53–58, 59 and above
+const AC_AGE_BREAKS = [18, 23, 29, 35, 41, 47, 53, 59];
+
+let AC_OPEN_DROP = null;
+const AC_OPT_CACHE = {};
+
+const AC_MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const AC_MONTHS = {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+
+const acClean = v => String(v == null ? '' : v).replace(/\s+/g,' ').trim();
+
+function acYear(s){ const n = +s; return n < 100 ? (n > 50 ? 1900 : 2000) + n : n; }
+
+function acMakeDate(y,m,d){
+  if(!y || !m || !d) return null;
+  const dt = new Date(y, m-1, d);
+  if(dt.getFullYear() !== y || dt.getMonth() !== m-1 || dt.getDate() !== d) return null;
+  return dt;
+}
+
+// Sheet date text: 25-Apr-2004, 25 Apr 2004, Apr 25, 2004, 2004-04-25, 25/04/2004, Date(2004,3,25)
+function acParseDate(v){
+  if(v instanceof Date) return isNaN(v) ? null : v;
+  const s = acClean(v);
+  if(!s) return null;
+  let m;
+  if((m = s.match(/^Date\((\d{4}),\s*(\d{1,2}),\s*(\d{1,2})\)$/))) return acMakeDate(+m[1], +m[2]+1, +m[3]);
+  if((m = s.match(/^(\d{1,2})[-\s\/]([A-Za-z]{3,})[-\s\/,]+(\d{2,4})$/))){
+    const mo = AC_MONTHS[m[2].slice(0,3).toLowerCase()];
+    return mo ? acMakeDate(acYear(m[3]), mo, +m[1]) : null;
+  }
+  if((m = s.match(/^([A-Za-z]{3,})\s+(\d{1,2}),?\s+(\d{2,4})$/))){
+    const mo = AC_MONTHS[m[1].slice(0,3).toLowerCase()];
+    return mo ? acMakeDate(acYear(m[3]), mo, +m[2]) : null;
+  }
+  if((m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) return acMakeDate(+m[1], +m[2], +m[3]);
+  if((m = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/))) return acMakeDate(acYear(m[3]), +m[2], +m[1]);
+  return null;
+}
+
+// LWD: "Active" = still working; a valid date = Last Working Day; anything else = unverified
+function acParseLwd(v){
+  const s = acClean(v);
+  if(!s) return {type:'blank', date:null};
+  if(/active/i.test(s)) return {type:'active', date:null};
+  const d = acParseDate(s);
+  if(d) return {type:'date', date:d};
+  return {type:'invalid', date:null};
+}
+
+function acGender(v){
+  const g = acClean(v).toLowerCase();
+  if(g === 'male' || g === 'm') return 'Male';
+  if(g === 'female' || g === 'f') return 'Female';
+  return '';
+}
+
+// Excel EDATE semantics
+function acEdate(d, months){
+  const t = new Date(d.getFullYear(), d.getMonth() + months, 1);
+  const last = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate();
+  return new Date(t.getFullYear(), t.getMonth(), Math.min(d.getDate(), last));
+}
+
+// Excel DATEDIF(start, end, "Y") — completed years
+function acDatedifY(j, e){
+  let y = e.getFullYear() - j.getFullYear();
+  if(e.getMonth() < j.getMonth() || (e.getMonth() === j.getMonth() && e.getDate() < j.getDate())) y--;
+  return y;
+}
+
+// Completed months between two dates (DATEDIF "M" semantics)
+function acMonthsCompleted(j, e){
+  let m = (e.getFullYear() - j.getFullYear()) * 12 + (e.getMonth() - j.getMonth());
+  if(e.getDate() < j.getDate()) m--;
+  return m;
+}
+
+function acFmt(d){
+  if(!d) return '—';
+  return `${String(d.getDate()).padStart(2,'0')}-${AC_MON[d.getMonth()]}-${d.getFullYear()}`;
+}
+
+// <input type="date"> value (yyyy-mm-dd) → Date or null
+function acInputDate(v){
+  if(!v) return null;
+  const p = v.split('-').map(Number);
+  return acMakeDate(p[0], p[1], p[2]);
+}
+
+function acTodayDate(){
+  const t = new Date();
+  return new Date(t.getFullYear(), t.getMonth(), t.getDate());
+}
+
+// Date range: returns {from,to} with from <= to, or null when no date is selected.
+// Only one date selected = a single day.
+function acRange(){
+  const f = acInputDate(AC_FILTERS.from), t = acInputDate(AC_FILTERS.to);
+  if(!f && !t) return null;
+  let a = f || t, b = t || f;
+  if(a > b) { const tmp = a; a = b; b = tmp; }
+  return {from:a, to:b};
+}
+
+// Snapshot date for pie, tenure table and new-hire-independent counts: To Date if a range is set, else today
+function acSnapDate(){
+  const r = acRange();
+  return r ? r.to : acTodayDate();
+}
+
+fetch;
+// Strict CSV reader for the Active Count sheet only: a quote starts a quoted field only at the start of a cell
+function acParseCsv(text){
+  const rows = []; let row = [], cell = '', q = false;
+  for(let i = 0; i < text.length; i++){
+    const c = text[i];
+    if(q){
+      if(c === '"'){
+        if(text[i+1] === '"'){ cell += '"'; i++; }
+        else q = false;
+      } else cell += c;
+    } else if(c === '"' && cell === ''){
+      q = true;
+    } else if(c === ','){ row.push(cell); cell = ''; }
+    else if(c === '\r'){ /* ignore */ }
+    else if(c === '\n'){ row.push(cell); rows.push(row); row = []; cell = ''; }
+    else cell += c;
+  }
+  if(cell !== '' || row.length){ row.push(cell); rows.push(row); }
+  return rows;
+}
+
+async function fetchActiveData(){
+  try{
+    const resp = await fetch(AC_CSV_URL, {method:'GET', mode:'cors'});
+    if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const rows = acParseCsv(await resp.text())
+      .map(r => r.slice(0, AC_COL_COUNT));                     // columns A–K only
+    if(rows.length < 2) throw new Error('Active Count sheet is empty');
+
+    const hdr = rows[0].map(h => acClean(h));                 // Row 1 = headers
+    const idx = {};
+    AC_REQUIRED.forEach(name => { idx[name] = hdr.findIndex(h => h.toLowerCase() === name.toLowerCase()); });
+    AC_MISSING = AC_REQUIRED.filter(n => idx[n] < 0);
+    const cell = (r,name) => idx[name] >= 0 ? acClean(r[idx[name]]) : '';
+
+    AC_DATA = rows.slice(1)                                    // every row, no row limit
+      .map(r => {
+        const lwd = acParseLwd(cell(r,'LWD'));
+        return {
+          code: cell(r,'Associate Code'),
+          name: cell(r,'Associate Name'),
+          dept: cell(r,'Department'),
+          manager: cell(r,'Managers'),
+          location: cell(r,'Work Location'),
+          designation: cell(r,'Designation'),
+          joined: acParseDate(cell(r,'Date Joined')),
+          lwdRaw: cell(r,'LWD'),
+          lwdType: lwd.type,
+          lwdDate: lwd.date,
+          gender: acGender(cell(r,'Gender')),
+          dob: acParseDate(cell(r,'Date of Birth')),
+          branch: cell(r,'Branch'),
+        };
+      })
+      .filter(e => e.code);
+
+    const joins = AC_DATA.map(e => e.joined).filter(Boolean);
+    AC_REF = joins.length ? new Date(Math.max(...joins.map(d => d.getTime()))) : null;
+    AC_READY = true;
+    AC_ERROR = '';
+    console.log('✅ Active Count loaded:', AC_DATA.length, 'employee records');
+  }catch(e){
+    console.error('❌ Active Count fetch error:', e.message);
+    AC_ERROR = e.message;
+  }
+  if(currentSection === 'hr-ops' && currentSubTab === 'active-count') renderActiveCount();
+}
+
+// Working on a date: Date Joined <= date AND (LWD = Active OR date <= LWD). LWD day counted.
+function acIsActive(e, day){
+  if(!e.joined || e.joined > day) return false;
+  if(e.lwdType === 'active') return true;
+  if(e.lwdType === 'date') return day <= e.lwdDate;
+  return false;   // blank / invalid LWD: status cannot be verified
+}
+
+function acAgeOn(e, day){
+  if(!e.dob || e.dob > day) return null;
+  return acDatedifY(e.dob, day);
+}
+
+// opts.ten / opts.age switch those filters on for this count. Department always applies when selected.
+function acPass(e, day, opts){
+  if(acSel.dept.size && !acSel.dept.has(e.dept)) return false;
+  if(opts.ten && AC_FILTERS.ten){
+    const r = AC_TENURE.find(x => x.k === AC_FILTERS.ten);
+    const y = acDatedifY(e.joined, day);
+    if(!(y >= r.min && y < r.max)) return false;
+  }
+  if(opts.age && AC_FILTERS.age){
+    const r = AC_AGE.find(x => x.k === AC_FILTERS.age);
+    const a = acAgeOn(e, day);
+    if(a === null || !(a >= r.min && a < r.max)) return false;
+  }
+  return true;
+}
+
+function acWorking(day, opts){
+  return AC_DATA.filter(e => acIsActive(e, day) && acPass(e, day, opts));
+}
+
+function acStats(day){
+  let unverified = 0, noJoin = 0;
+  AC_DATA.forEach(e => {
+    if(!e.joined){ noJoin++; return; }
+    if(e.joined <= day && e.lwdType !== 'active' && e.lwdType !== 'date') unverified++;
+  });
+  return {unverified, noJoin};
+}
+
+function acTable(headers, rows){
+  return `<div class="ac-table-wrap"><table class="ac-table"><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+
+function acMsg(text){ return `<div class="ac-msg">${text}</div>`; }
+
+function pct(n,total){ return total ? (n/total*100).toFixed(1)+'%' : '—'; }
+
+// ── Filter controls ──────────────────────────────────────────
+function acSetFilter(name, value){
+  AC_FILTERS[name] = value;
+  renderActiveCount();
+}
+
+function acToggleDrop(){
+  AC_OPEN_DROP = AC_OPEN_DROP === 'dept' ? null : 'dept';
+  renderActiveCount();
+}
+
+function acToggleVal(i){
+  const v = AC_OPT_CACHE.dept[i];
+  if(acSel.dept.has(v)) acSel.dept.delete(v); else acSel.dept.add(v);
+  renderActiveCount();
+}
+
+function acClearDept(){
+  acSel.dept.clear();
+  renderActiveCount();
+}
+
+function acClearAll(){
+  AC_FILTERS.from = ''; AC_FILTERS.to = ''; AC_FILTERS.ten = ''; AC_FILTERS.age = '';
+  acSel.dept.clear();
+  AC_OPEN_DROP = null;
+  renderActiveCount();
+}
+
+function acListSearch(q){
+  q = q.toLowerCase();
+  document.querySelectorAll('#acl_dept .sl-item').forEach(it => {
+    it.style.display = it.dataset.v.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+// Close the open Department list when clicking outside it (Active Count page only)
+document.addEventListener('click', e => {
+  if(AC_OPEN_DROP && currentSection === 'hr-ops' && currentSubTab === 'active-count' && !e.target.closest('.ac-fw')){
+    AC_OPEN_DROP = null;
+    renderActiveCount();
+  }
+});
+
+// ── Excel-style cascading options ────────────────────────────
+// Working population on a day with every filter applied except the one named in excl
+function acPassEx(e, day, excl){
+  if(excl !== 'dept' && acSel.dept.size && !acSel.dept.has(e.dept)) return false;
+  if(excl !== 'ten' && AC_FILTERS.ten){
+    if(!e.joined) return false;
+    const r = AC_TENURE.find(x => x.k === AC_FILTERS.ten);
+    const m = acMonthsCompleted(e.joined, day);
+    if(!(m >= r.min && m < r.max)) return false;
+  }
+  if(excl !== 'age' && AC_FILTERS.age){
+    const r = AC_AGE.find(x => x.k === AC_FILTERS.age);
+    const a = acAgeOn(e, day);
+    if(a === null || !(a >= r.min && a < r.max)) return false;
+  }
+  return true;
+}
+
+// Date range overlap rule: worked at least one day in From..To
+// DOJ <= To Date AND (LWD = Active OR LWD >= From Date)
+function acInRange(e, r){
+  if(!e.joined || e.joined > r.to) return false;
+  if(e.lwdType === 'active') return true;
+  if(e.lwdType === 'date') return e.lwdDate >= r.from;
+  return false;
+}
+
+// Employees counted for the current filters (all filters except the one named in excl)
+function acBase(excl){
+  const r = acRange(), day = acSnapDate();
+  return AC_DATA.filter(e => (r ? acInRange(e, r) : true) && acPassEx(e, day, excl));
+}
+
+function acDeptFilterHtml(snap){
+  const s = acSel.dept;
+  const counts = {};
+  acBase('dept').forEach(e => { if(e.dept) counts[e.dept] = (counts[e.dept] || 0) + 1; });
+  const opts = [...new Set([...s, ...Object.keys(counts)])].sort();
+  AC_OPT_CACHE.dept = opts;
+  const label = s.size === 0 ? 'Department' : s.size === 1 ? [...s][0] : `Department (${s.size})`;
+  return `<label class="ac-fl">Department
+    <div class="sl-wrap ac-fw">
+      <button class="sl-btn${s.size ? ' active' : ''}" onclick="acToggleDrop()">${escH(label)}</button>
+      <div class="sl-drop${AC_OPEN_DROP === 'dept' ? ' open' : ''}">
+        <div class="sl-search"><input type="text" placeholder="Search…" oninput="acListSearch(this.value)"></div>
+        <div class="sl-actions"><button class="sl-action-btn" onclick="acClearDept()">Clear</button></div>
+        <div class="sl-list" id="acl_dept">${opts.map((v,i) =>
+          `<div class="sl-item" data-v="${escH(v)}" onclick="acToggleVal(${i})"><input type="checkbox"${s.has(v) ? ' checked' : ''}><label>${escH(v)} (${(counts[v] || 0).toLocaleString()})</label></div>`).join('')}</div>
+      </div>
+    </div></label>`;
+}
+
+// Tenure / Age dropdown: only bands that still have employees (with the other filters applied); selected band always kept
+function acBandSelectHtml(label, key, bands, snap){
+  const list = acBase(key);
+  const withCount = bands.map(r => {
+    const n = key === 'ten'
+      ? list.filter(e => { if(!e.joined) return false; const m = acMonthsCompleted(e.joined, snap); return m >= r.min && m < r.max; }).length
+      : list.filter(e => { const a = acAgeOn(e, snap); return a !== null && a >= r.min && a < r.max; }).length;
+    return {r, n};
+  }).filter(x => x.n > 0 || AC_FILTERS[key] === x.r.k);
+  return `<label class="ac-fl">${label}
+    <select class="ac-select" onchange="acSetFilter('${key}',this.value)"><option value="">All</option>${withCount.map(x =>
+      `<option value="${x.r.k}"${AC_FILTERS[key] === x.r.k ? ' selected' : ''}>${x.r.l} (${x.n.toLocaleString()})</option>`).join('')}</select></label>`;
+}
+
+function acCard(title, id, h, note){
+  return `<div class="ch-card"><div class="ch-title">${title}</div>${note ? `<div class="ac-count">${note}</div>` : ''}<div class="ch-wrap" style="height:${h}px"><canvas id="${id}"></canvas></div></div>`;
+}
+
+// Chart helper (same styling conventions as the rest of the app)
+function acChart(id, type, labels, datasets, opts = {}){
+  if(chartInst[id]){ chartInst[id].destroy(); delete chartInst[id]; }
+  const el = document.getElementById(id);
+  if(!el) return;
+  const total = datasets.reduce((s,ds) => s + ds.data.reduce((a,b) => a + (b || 0), 0), 0);
+  if(!labels.length || !total){
+    el.parentElement.innerHTML = '<div class="ac-empty">No data for this chart</div>';
+    return;
+  }
+  const isPie = type === 'pie';
+  const gridC = 'rgba(209,220,230,.35)';
+  chartInst[id] = new Chart(el.getContext('2d'), {
+    type, data:{labels, datasets}, plugins:[ChartDataLabels],
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      indexAxis: opts.horizontal ? 'y' : 'x',
+      plugins:{
+        legend:{display:isPie, position:'bottom', labels:{color:CC.muted,font:{size:10},boxWidth:10,padding:8}},
+        tooltip:{enabled:true},
+        datalabels:{
+          display: globalLabels === true,
+          color:'#ffffff',
+          font:{size:9,weight:'600',family:'"JetBrains Mono",monospace'},
+          anchor: isPie ? 'center' : 'end',
+          align: isPie ? 'center' : (opts.horizontal ? 'end' : 'top'),
+          offset: isPie ? 0 : 2,
+          clip:false,
+          formatter: opts.labelFmt || (v => v ? Number(v).toLocaleString() : ''),
+        }
+      },
+      scales: isPie ? undefined : {
+        x:{ticks:{color:CC.muted,font:{size:9},maxRotation:38,autoSkip:false},grid:{color:gridC},border:{color:CC.border}},
+        y:{ticks:{color:CC.muted,font:{size:9},precision:0},grid:{color:gridC},border:{color:CC.border},beginAtZero:true}
+      }
+    }
+  });
+}
+
+function renderActiveCount(){
+  const main = document.getElementById('mainArea');
+  document.getElementById('kpiStrip').style.display = 'none';
+  Object.keys(chartInst).filter(k => k.startsWith('ac_')).forEach(k => { chartInst[k].destroy(); delete chartInst[k]; });
+
+  if(!AC_READY){
+    main.innerHTML = AC_ERROR
+      ? `<div class="placeholder-page"><div class="placeholder-content"><div class="placeholder-icon">❌</div><div class="placeholder-title">Active Count Load Error</div><div class="placeholder-text">${escH(AC_ERROR)}</div></div></div>`
+      : `<div class="placeholder-page"><div class="placeholder-content"><div class="placeholder-icon">⏳</div><div class="placeholder-title">Loading Active Count Data...</div></div></div>`;
+    return;
+  }
+
+  const snap = acSnapDate();
+  const today = acTodayDate();
+  const st = acStats(snap);
+
+  const notes = [];
+  if(AC_MISSING.length) notes.push(`Source column(s) not found: ${escH(AC_MISSING.join(', '))}.`);
+  if(AC_ERROR) notes.push(`Latest refresh failed (${escH(AC_ERROR)}). Showing last loaded data.`);
+  if(st.noJoin) notes.push(`${st.noJoin} record(s) with no valid Date Joined are excluded.`);
+  if(snap < today) notes.push(`Historical view: working status uses Date Joined and LWD from the source sheet. Employees whose records were removed cannot be recovered.`);
+
+  // Working population on the snapshot date with all four filters applied
+  const pop = acBase(null);
+  const male = pop.filter(e => e.gender === 'Male').length;
+  const female = pop.filter(e => e.gender === 'Female').length;
+  const unknownGender = pop.length - male - female;
+
+  const branchMap = {};
+  pop.forEach(e => { if(e.branch) branchMap[e.branch] = (branchMap[e.branch] || 0) + 1; });
+  const branchRows = Object.entries(branchMap).sort((a,b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const blankBranch = pop.length - branchRows.reduce((s,r) => s + r[1], 0);
+
+  const deptMap = {};
+  pop.forEach(e => { if(e.dept) deptMap[e.dept] = (deptMap[e.dept] || 0) + 1; });
+  const deptRows = Object.entries(deptMap).sort((a,b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const deptTotal = deptRows.reduce((s,r) => s + r[1], 0);
+  const deptBlank = pop.length - deptTotal;
+
+  // Manager by Department: (Department, Managers) pairs; blank or '0' values excluded
+  const mgrPairs = {};
+  pop.forEach(e => {
+    if(!e.dept || !e.manager || e.manager === '0') return;
+    const k = e.dept + ' | ' + e.manager;
+    mgrPairs[k] = mgrPairs[k] || {dept:e.dept, manager:e.manager, n:0};
+    mgrPairs[k].n++;
+  });
+  const mgrRows = Object.values(mgrPairs).sort((a,b) => b.n - a.n || a.dept.localeCompare(b.dept) || a.manager.localeCompare(b.manager));
+  const blankMgr = pop.length - mgrRows.reduce((s,r) => s + r.n, 0);
+
+  // Location-wise: Work Location column
+  const locMap = {};
+  pop.forEach(e => { if(e.location) locMap[e.location] = (locMap[e.location] || 0) + 1; });
+  const locRows = Object.entries(locMap).sort((a,b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const blankLoc = pop.length - locRows.reduce((s,r) => s + r[1], 0);
+
+  const filterBar = `<div class="ac-toolbar">
+    <label class="ac-fl">From Date
+      <input type="date" value="${AC_FILTERS.from}" onchange="acSetFilter('from',this.value)"></label>
+    <label class="ac-fl">To Date
+      <input type="date" value="${AC_FILTERS.to}" onchange="acSetFilter('to',this.value)"></label>
+    ${acDeptFilterHtml(snap)}
+    ${acBandSelectHtml('Tenure','ten',AC_TENURE,snap)}
+    ${acBandSelectHtml('Age','age',AC_AGE,snap)}
+    <button class="clear-btn" onclick="acClearAll()">✕ Clear All</button>
+  </div>`;
+
+  main.innerHTML = `
+    ${notes.map(n => `<div class="ac-note">${n}</div>`).join('')}
+    <div class="ac-heading">HR Overview</div>
+    <div class="ac-sub">${acRange() ? `Employed between ${acFmt(acRange().from)} and ${acFmt(acRange().to)} (worked during range: joined by To Date; Active or LWD on/after From Date)` : `All employees as of ${acFmt(snap)}`} • latest join date: ${AC_REF ? acFmt(AC_REF) : '—'}</div>
+    ${filterBar}
+
+    <div class="ac-row">
+      ${acCard('Gender Distribution','ac_gender', 300, unknownGender ? `${unknownGender} record(s) with blank or unrecognised Gender excluded` : `As of ${acFmt(snap)}`)}
+      ${acCard('Branch-Wise Headcount','ac_branch', 300, blankBranch ? `${blankBranch} record(s) with blank Branch excluded` : `As of ${acFmt(snap)}`)}
+    </div>
+
+    <div class="ch-card ac-section">
+      <div class="ch-title">Employee by Department</div>
+      <div class="ac-count">${deptBlank ? `${deptBlank} record(s) with blank Department excluded • ` : ''}Total ${deptTotal.toLocaleString()}</div>
+      ${deptRows.length ? acTable(['Department','Employees','% of Total'], deptRows.map(r => [escH(r[0]), r[1].toLocaleString(), pct(r[1], deptTotal)])) : acMsg('No department data for these filters.')}
+    </div>
+    <div class="ch-card ac-section"><div class="ch-title">Manager by Department</div>
+      ${blankMgr ? `<div class="ac-count">${blankMgr.toLocaleString()} record(s) with blank or 0 Manager/Department excluded</div>` : ''}
+      <div style="margin-top:12px">${mgrRows.length ? acTable(['Department','Manager','Employees','% of Total'], mgrRows.map(r => [escH(r.dept), escH(r.manager), r.n.toLocaleString(), pct(r.n, pop.length - blankMgr)])) : acMsg('No manager data for these filters.')}</div>
+    </div>
+    <div class="ch-card ac-section"><div class="ch-title">Location-Wise Headcount</div>
+      ${blankLoc ? `<div class="ac-count">${blankLoc.toLocaleString()} record(s) with blank Work Location excluded • Total ${locRows.reduce((s,r) => s + r[1], 0).toLocaleString()}</div>` : ''}
+      ${locRows.length ? acTable(['Location','Employees','% of Total'], locRows.map(r => [escH(r[0]), r[1].toLocaleString(), pct(r[1], locRows.reduce((s,x) => s + x[1], 0))])) : acMsg('No work location data for these filters.')}
+    </div>
+    `;
+
+  acChart('ac_gender','pie', ['Male','Female'],
+    [{data:[male, female], backgroundColor:['#1e88e5','#7c4dff'], borderWidth:0}],
+    {labelFmt: (v, ctx) => {
+      const tot = ctx.dataset.data.reduce((a,b) => a+b, 0);
+      return v ? `${v.toLocaleString()} (${(v/tot*100).toFixed(1)}%)` : '';
+    }});
+
+  acChart('ac_branch','bar', branchRows.map(r => r[0]),
+    [{label:'Working Employees', data:branchRows.map(r => r[1]), backgroundColor:'rgba(0,151,167,.75)', borderWidth:0, borderRadius:6}]);
+
+}
+
 // TAB 5: EXITS
 function tabExits(main,data){
   main.innerHTML=`<div class="charts-grid g1"><div class="ch-card"><div class="ch-title">Total Attrition % by Process</div><div class="ch-wrap"><canvas id="c1"></canvas></div></div></div>`;
@@ -1236,6 +1789,7 @@ window.addEventListener('DOMContentLoaded', () => {
 renderSubTabs();
 fetchData();
 fetchLndData();
+fetchActiveData();
 </script>
 
 </body>
