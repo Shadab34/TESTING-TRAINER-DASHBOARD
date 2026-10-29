@@ -789,13 +789,13 @@ function mkChart(id,type,labels,datasets,opts={}){
       plugins:{
         legend:{display:datasets.length>1,labels:{color:CC.muted,font:{size:10},boxWidth:10,padding:8}},
         tooltip:{enabled:true,callbacks:{label:ctx=>{const v=ctx.parsed.y??ctx.parsed;return isPct&&typeof v==='number'?` ${(v*100).toFixed(1)}%`:` ${typeof v==='number'?v.toLocaleString():v}`;}}},
-        datalabels:{display:globalLabels===true,color:'#ffffff',font:{size:9,weight:'600',family:'"JetBrains Mono",monospace'},
-          anchor:'end',align:'top',offset:2,clip:false,formatter:exDL||baseFmt},
+        datalabels:{display:globalLabels===true,color:(type==='pie'?'#ffffff':'#212121'),font:{size:9,weight:'600',family:'"JetBrains Mono",monospace'},
+          anchor:(type==='pie'?'center':'end'),align:(type==='pie'?'center':'end'),offset:2,clip:false,formatter:exDL||baseFmt},
       },
       scales:(type==='bar'||type==='line')?{
         x:{ticks:{color:CC.muted,font:{size:9},maxRotation:38},grid:{color:'rgba(209,220,230,.4)'},border:{color:CC.border}},
         y:scaleY}:undefined,
-      layout:{padding:{top:4,right:6}},
+      layout:{padding:{top:26,right:6}},
       ...(opts.extraOpts||{}),
     }
   });
@@ -812,15 +812,8 @@ function toggleGlobalLabels() {
   const btn = document.getElementById('lblToggle');
   btn.textContent = globalLabels ? 'Labels ON' : 'Labels OFF';
   btn.classList.toggle('active', globalLabels);
-  
-  // Apply to every chart on every dashboard, then redraw with update() so the new setting takes effect
-  Object.values(chartInst).forEach(c => {
-    if(!c || !c.options) return;
-    c.options.plugins = c.options.plugins || {};
-    c.options.plugins.datalabels = c.options.plugins.datalabels || {};
-    c.options.plugins.datalabels.display = globalLabels;
-    c.update();
-  });
+  // Rebuild the visible dashboard so every chart is created with the new label setting
+  renderPage();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1548,6 +1541,7 @@ function acChart(id, type, labels, datasets, opts = {}){
     type, data:{labels, datasets}, plugins:[ChartDataLabels],
     options:{
       responsive:true, maintainAspectRatio:false,
+      layout:{padding:{top:26,right:10}},
       indexAxis: opts.horizontal ? 'y' : 'x',
       plugins:{
         legend:{display:isPie, position:'bottom', labels:{color:CC.muted,font:{size:10},boxWidth:10,padding:8}},
